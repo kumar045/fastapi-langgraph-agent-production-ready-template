@@ -9,17 +9,32 @@ from app.core.config import settings
 from app.core.logging import logger
 
 
+def _merged_headers(server_headers: dict[str, Any] | None) -> dict[str, Any]:
+    """Merge global and per-server headers for MCP connections."""
+    merged = dict(settings.MCP_AUTH_HEADERS)
+    if server_headers and isinstance(server_headers, dict):
+        merged.update(server_headers)
+    return merged
+
+
 def _build_mcp_server_config() -> dict[str, dict[str, Any]]:
     """Build MCP server configuration from env settings."""
     if settings.MCP_SERVER_CONFIGS:
-        return {
-            str(name): dict(config)
-            for name, config in settings.MCP_SERVER_CONFIGS.items()
-            if isinstance(config, dict)
-        }
+        built_config: dict[str, dict[str, Any]] = {}
+        for name, config in settings.MCP_SERVER_CONFIGS.items():
+            if not isinstance(config, dict):
+                continue
+            merged_config = dict(config)
+            merged_config["headers"] = _merged_headers(merged_config.get("headers"))
+            built_config[str(name)] = merged_config
+        return built_config
 
     return {
-        f"server_{idx}": {"url": server_url, "transport": "streamable_http"}
+        f"server_{idx}": {
+            "url": server_url,
+            "transport": "streamable_http",
+            "headers": _merged_headers(None),
+        }
         for idx, server_url in enumerate(settings.MCP_SERVER_URLS)
     }
 

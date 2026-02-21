@@ -252,10 +252,13 @@ RATE_LIMIT_ENABLED=true
 ENABLE_MCP=false
 MCP_SERVER_URLS=http://localhost:8080/mcp
 MCP_SERVER_CONFIGS={"local_mcp":{"transport":"streamable_http","url":"http://localhost:8080/mcp"}}
+MCP_AUTH_HEADERS={"Authorization":"Bearer <token>","x-api-key":"<key>"}
 ENABLE_A2A=false
 A2A_AGENT_CARD_URL=http://localhost:9000/.well-known/agent.json
 A2A_SERVER_URL=http://localhost:9000/a2a/messages
 A2A_AGENT_ENDPOINTS={"finance":"http://localhost:9001/a2a/messages","support":"http://localhost:9002/a2a/messages"}
+A2A_AUTH_HEADERS={"Authorization":"Bearer <token>"} # optional
+A2A_AGENT_AUTH_HEADERS={"finance":{"Authorization":"Bearer <finance-token>"}} # optional per-agent
 A2A_TIMEOUT_SECONDS=30
 ```
 
@@ -303,9 +306,20 @@ MCP_SERVER_URLS=http://localhost:8080/mcp,http://localhost:8081/mcp
 ```bash
 ENABLE_MCP=true
 MCP_SERVER_CONFIGS={"local_mcp":{"transport":"streamable_http","url":"http://localhost:8080/mcp"},"research_mcp":{"transport":"streamable_http","url":"http://localhost:8081/mcp"}}
+MCP_AUTH_HEADERS={"Authorization":"Bearer <token>","x-api-key":"<key>"}
 ```
 
 `MCP_SERVER_CONFIGS` takes precedence over `MCP_SERVER_URLS`.
+
+
+Authentication with remote MCP/A2A agents:
+- `MCP_AUTH_HEADERS` are merged into each MCP server config and sent when the MCP client connects.
+- `A2A_AUTH_HEADERS` are sent as HTTP headers for `delegate_to_a2a_agent` requests (optional).
+- `A2A_AGENT_AUTH_HEADERS` can override headers for specific agent names.
+- Keep secrets in environment variables only. Do not hardcode tokens in code.
+
+
+If your remote MCP/A2A services do not require authentication, keep `MCP_AUTH_HEADERS`, `A2A_AUTH_HEADERS`, and `A2A_AGENT_AUTH_HEADERS` empty or unset. The same code path works for both authenticated and unauthenticated agents.
 
 How it works in LangGraph:
 - On graph initialization, `load_mcp_tools()` builds server configuration from env.

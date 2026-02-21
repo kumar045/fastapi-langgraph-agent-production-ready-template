@@ -222,10 +222,13 @@ class Settings:
         self.ENABLE_MCP = os.getenv("ENABLE_MCP", "false").lower() in ("true", "1", "t", "yes")
         self.MCP_SERVER_URLS = parse_list_from_env("MCP_SERVER_URLS", [])
         self.MCP_SERVER_CONFIGS = parse_json_dict_from_env("MCP_SERVER_CONFIGS", {})
+        self.MCP_AUTH_HEADERS = parse_json_dict_from_env("MCP_AUTH_HEADERS", {})
         self.ENABLE_A2A = os.getenv("ENABLE_A2A", "false").lower() in ("true", "1", "t", "yes")
         self.A2A_AGENT_CARD_URL = os.getenv("A2A_AGENT_CARD_URL", "")
         self.A2A_SERVER_URL = os.getenv("A2A_SERVER_URL", "")
         self.A2A_AGENT_ENDPOINTS = parse_json_dict_from_env("A2A_AGENT_ENDPOINTS", {})
+        self.A2A_AUTH_HEADERS = parse_json_dict_from_env("A2A_AUTH_HEADERS", {})
+        self.A2A_AGENT_AUTH_HEADERS = parse_json_dict_from_env("A2A_AGENT_AUTH_HEADERS", {})
         self.A2A_TIMEOUT_SECONDS = float(os.getenv("A2A_TIMEOUT_SECONDS", "30"))
 
         # Evaluation Configuration
