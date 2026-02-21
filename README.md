@@ -247,7 +247,89 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 
 # Rate Limiting
 RATE_LIMIT_ENABLED=true
+
+# MCP / A2A Protocols
+ENABLE_MCP=false
+MCP_SERVER_URLS=http://localhost:8080/mcp
+MCP_SERVER_CONFIGS={"local_mcp":{"transport":"streamable_http","url":"http://localhost:8080/mcp"}}
+ENABLE_A2A=false
+A2A_AGENT_CARD_URL=http://localhost:9000/.well-known/agent.json
+A2A_SERVER_URL=http://localhost:9000/a2a/messages
+A2A_AGENT_ENDPOINTS={"finance":"http://localhost:9001/a2a/messages","support":"http://localhost:9002/a2a/messages"}
+A2A_TIMEOUT_SECONDS=30
 ```
+
+
+### MCP / A2A endpoint
+
+After enabling protocol settings, you can inspect runtime protocol support:
+
+```bash
+GET /api/v1/protocols/status
+```
+
+The endpoint reports whether MCP/A2A are enabled and whether required adapters are installed in the runtime environment.
+
+
+### How MCP and A2A work with LangGraph
+
+1. `LangGraphAgent` initializes tools at graph startup.
+2. Default tools are loaded first (for example DuckDuckGo search).
+3. If `ENABLE_MCP=true`, MCP tools are loaded from `MCP_SERVER_URLS` using `langchain-mcp-adapters`.
+4. If `ENABLE_A2A=true`, an A2A delegation tool (`delegate_to_a2a_agent`) is added.
+5. The merged tool list is bound to the LLM, and LangGraph routes to `tool_call` whenever the model emits tool calls.
+
+Example flow:
+- User asks: "Ask the finance agent for latest quarterly summary."
+- Model selects `delegate_to_a2a_agent` tool.
+- LangGraph executes tool node and sends `{"task": "..."}` to `A2A_SERVER_URL`.
+- Tool output is added back to graph state and model continues response generation.
+
+
+
+### Add MCP Server
+
+You can add MCP servers in two ways:
+
+1. Quick setup with URL list:
+
+```bash
+ENABLE_MCP=true
+MCP_SERVER_URLS=http://localhost:8080/mcp,http://localhost:8081/mcp
+```
+
+2. Advanced setup with named server configs (recommended):
+
+```bash
+ENABLE_MCP=true
+MCP_SERVER_CONFIGS={"local_mcp":{"transport":"streamable_http","url":"http://localhost:8080/mcp"},"research_mcp":{"transport":"streamable_http","url":"http://localhost:8081/mcp"}}
+```
+
+`MCP_SERVER_CONFIGS` takes precedence over `MCP_SERVER_URLS`.
+
+How it works in LangGraph:
+- On graph initialization, `load_mcp_tools()` builds server configuration from env.
+- `MultiServerMCPClient` fetches tools from all configured MCP servers.
+- Those tools are merged with default/A2A tools and bound to the model.
+- When the model emits a tool call, LangGraph executes the matching MCP tool in the `tool_call` node.
+
+### Add another agent with A2A
+
+To delegate to additional agents, add them to `A2A_AGENT_ENDPOINTS` as JSON.
+
+- `A2A_SERVER_URL` is the default fallback endpoint.
+- `A2A_AGENT_ENDPOINTS` maps logical names to endpoints.
+
+Example:
+
+```bash
+A2A_SERVER_URL=http://localhost:9000/a2a/messages
+A2A_AGENT_ENDPOINTS={"finance":"http://localhost:9001/a2a/messages","research":"http://localhost:9003/a2a/messages"}
+```
+
+Then ask the model to call the tool with an agent name, for example:
+- `delegate_to_a2a_agent(task="summarize q3 pnl", agent_name="finance")`
+- `delegate_to_a2a_agent(task="gather market notes", agent_name="research")`
 
 ## 🧠 Long-Term Memory
 

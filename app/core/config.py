@@ -97,6 +97,24 @@ def parse_list_from_env(env_key, default=None):
     return [item.strip() for item in value.split(",") if item.strip()]
 
 
+
+
+def parse_json_dict_from_env(env_key: str, default: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    """Parse a JSON dictionary from an environment variable."""
+    value = os.getenv(env_key)
+    if not value:
+        return default or {}
+
+    try:
+        parsed_value = json.loads(value)
+    except json.JSONDecodeError:
+        return default or {}
+
+    if not isinstance(parsed_value, dict):
+        return default or {}
+
+    return {str(key): val for key, val in parsed_value.items()}
+
 # Parse dict of lists from environment variables with prefix
 def parse_dict_of_lists_from_env(prefix, default_dict=None):
     """Parse dictionary of lists from environment variables with a common prefix."""
@@ -199,6 +217,16 @@ class Settings:
             value = parse_list_from_env(env_key)
             if value:
                 self.RATE_LIMIT_ENDPOINTS[endpoint] = value
+
+        # MCP / A2A integration settings
+        self.ENABLE_MCP = os.getenv("ENABLE_MCP", "false").lower() in ("true", "1", "t", "yes")
+        self.MCP_SERVER_URLS = parse_list_from_env("MCP_SERVER_URLS", [])
+        self.MCP_SERVER_CONFIGS = parse_json_dict_from_env("MCP_SERVER_CONFIGS", {})
+        self.ENABLE_A2A = os.getenv("ENABLE_A2A", "false").lower() in ("true", "1", "t", "yes")
+        self.A2A_AGENT_CARD_URL = os.getenv("A2A_AGENT_CARD_URL", "")
+        self.A2A_SERVER_URL = os.getenv("A2A_SERVER_URL", "")
+        self.A2A_AGENT_ENDPOINTS = parse_json_dict_from_env("A2A_AGENT_ENDPOINTS", {})
+        self.A2A_TIMEOUT_SECONDS = float(os.getenv("A2A_TIMEOUT_SECONDS", "30"))
 
         # Evaluation Configuration
         self.EVALUATION_LLM = os.getenv("EVALUATION_LLM", "gpt-5")

@@ -34,7 +34,9 @@ from app.core.config import (
     Environment,
     settings,
 )
-from app.core.langgraph.tools import tools
+from app.core.langgraph.tools import DEFAULT_TOOLS
+from app.core.langgraph.tools.a2a_loader import load_a2a_tools
+from app.core.langgraph.tools.mcp import load_mcp_tools
 from app.core.logging import logger
 from app.core.metrics import llm_inference_duration_seconds
 from app.core.prompts import load_system_prompt
@@ -61,8 +63,8 @@ class LangGraphAgent:
         """Initialize the LangGraph Agent with necessary components."""
         # Use the LLM service with tools bound
         self.llm_service = llm_service
-        self.llm_service.bind_tools(tools)
-        self.tools_by_name = {tool.name: tool for tool in tools}
+        self.tools_by_name = {tool.name: tool for tool in DEFAULT_TOOLS}
+        self._tools_initialized = False
         self._connection_pool: Optional[AsyncConnectionPool] = None
         self._graph: Optional[CompiledStateGraph] = None
         self.memory: Optional[AsyncMemory] = None
@@ -70,6 +72,27 @@ class LangGraphAgent:
             "langgraph_agent_initialized",
             model=settings.DEFAULT_LLM_MODEL,
             environment=settings.ENVIRONMENT.value,
+        )
+
+    async def _initialize_tools(self) -> None:
+        """Initialize default, MCP, and A2A tools for the agent."""
+        if self._tools_initialized:
+            return
+
+        merged_tools = list(DEFAULT_TOOLS)
+        mcp_tools = await load_mcp_tools()
+        a2a_tools = await load_a2a_tools()
+        merged_tools.extend(mcp_tools)
+        merged_tools.extend(a2a_tools)
+
+        self.llm_service.bind_tools(merged_tools)
+        self.tools_by_name = {tool.name: tool for tool in merged_tools}
+        self._tools_initialized = True
+        logger.info(
+            "langgraph_tools_initialized",
+            tool_count=len(merged_tools),
+            mcp_tool_count=len(mcp_tools),
+            a2a_tool_count=len(a2a_tools),
         )
 
     async def _long_term_memory(self) -> AsyncMemory:
@@ -257,6 +280,7 @@ class LangGraphAgent:
         """
         if self._graph is None:
             try:
+                await self._initialize_tools()
                 graph_builder = StateGraph(GraphState)
                 graph_builder.add_node("chat", self._chat, ends=["tool_call", END])
                 graph_builder.add_node("tool_call", self._tool_call, ends=["chat"])
