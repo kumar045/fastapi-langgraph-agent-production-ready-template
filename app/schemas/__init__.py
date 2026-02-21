@@ -8,6 +8,10 @@ from app.schemas.chat import (
     StreamResponse,
 )
 from app.schemas.graph import GraphState
+from app.schemas.protocols import (
+    A2AProxyRequest,
+    A2AProxyResponse,
+)
 
 __all__ = [
     "Token",
@@ -16,4 +20,6 @@ __all__ = [
     "Message",
     "StreamResponse",
     "GraphState",
+    "A2AProxyRequest",
+    "A2AProxyResponse",
 ]
